@@ -2,55 +2,51 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp');
 
-// Créer dynamiquement le dossier d'avatars s'il n'existe pas
-const avatarDir = path.join(__dirname, '../uploads/avatars');
-if (!fs.existsSync(avatarDir)) {
-    fs.mkdirSync(avatarDir, { recursive: true });
-    console.log('Dossier avatars créé avec succès.');
+// Créer dynamiquement le dossier pour les fichiers s'il n'existe pas
+const filesDir = path.join(__dirname, '../uploads/files');
+if (!fs.existsSync(filesDir)) {
+    fs.mkdirSync(filesDir, { recursive: true });
+    console.log('Dossier de fichiers créé avec succès.');
 }
 
-// Utiliser la mémoire pour le stockage
-const storage = multer.memoryStorage();
+// Définir le stockage pour enregistrer directement sur le disque
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, filesDir); // Enregistrer dans le dossier des fichiers
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
 
-// Filtrer les fichiers (n'accepter que les images)
+// Filtrer les fichiers pour n'accepter que les types texte, PDF, et Word
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const allowedTypes = [
+        'application/pdf',
+        'application/msword', // .doc
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'text/plain'
+    ];
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true); // Fichier accepté
     } else {
-        cb(new Error('Seules les images sont autorisées!'), false); // Fichier refusé
+        cb(new Error('Seuls les fichiers texte, PDF, et Word sont autorisés!'), false); // Fichier refusé
     }
 };
 
 // Créer l'upload avec la configuration
 const upload = multer({ storage, fileFilter });
 
-// Middleware pour compresser et convertir l'image
-const uploadAvatar = async (req, res, next) => {
+// Middleware pour traiter les fichiers
+const uploadFile = (req, res, next) => {
     if (!req.file) {
         return next(); // Si aucun fichier, passer au middleware suivant
     }
 
-    const outputPath = path.join(avatarDir, `${req.file.fieldname}-${Date.now()}.webp`);
-
-    try {
-        await sharp(req.file.buffer)
-            .resize(500, 500, { // Redimensionner à une largeur de 500px tout en maintenant le ratio
-                fit: sharp.fit.cover,
-                position: 'center',
-            })
-            .webp({ quality: 80 }) // Convertir en WebP avec une qualité de 80
-            .toFile(outputPath); // Enregistrer le fichier
-
-        // Remplacer req.file avec le chemin du fichier converti
-        req.file.filename = path.basename(outputPath); // Mettre à jour le nom du fichier
-        next(); // Passer au middleware suivant
-    } catch (error) {
-        console.error('Erreur lors du traitement de l\'image:', error);
-        return res.status(500).send('Erreur lors du traitement de l\'image.');
-    }
+    console.log('Fichier uploadé:', req.file.filename);
+    next();
 };
 
-module.exports = { upload, uploadAvatar };
+module.exports = { upload, uploadFile };
