@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Créer dynamiquement le dossier pour les fichiers s'il n'existe pas
-const filesDir = path.join(__dirname, '../uploads/files');
+const filesDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(filesDir)) {
     fs.mkdirSync(filesDir, { recursive: true });
     console.log('Dossier de fichiers créé avec succès.');
@@ -13,10 +13,10 @@ if (!fs.existsSync(filesDir)) {
 // Définir le stockage pour enregistrer directement sur le disque
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, filesDir); // Enregistrer dans le dossier des fichiers
+        cb(null, filesDir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
         cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
@@ -25,28 +25,18 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
     const allowedTypes = [
         'application/pdf',
-        'application/msword', // .doc
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain'
     ];
     if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true); // Fichier accepté
+        cb(null, true);
     } else {
-        cb(new Error('Seuls les fichiers texte, PDF, et Word sont autorisés!'), false); // Fichier refusé
+        cb(new Error('Seuls les fichiers texte, PDF, et Word sont autorisés!'), false);
     }
 };
 
 // Créer l'upload avec la configuration
 const upload = multer({ storage, fileFilter });
 
-// Middleware pour traiter les fichiers
-const uploadFile = (req, res, next) => {
-    if (!req.file) {
-        return next(); // Si aucun fichier, passer au middleware suivant
-    }
-
-    console.log('Fichier uploadé:', req.file.filename);
-    next();
-};
-
-module.exports = { upload, uploadFile };
+module.exports = upload;
